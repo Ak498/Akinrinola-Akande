@@ -1,0 +1,2 @@
+#child file
+Print("child")
