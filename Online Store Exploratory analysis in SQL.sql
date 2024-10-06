@@ -7,66 +7,120 @@
  The aim of this analysis is to answer a few questions about the data and discover insights in the data.
  */
  
- use project_1;
+USE project_1;
 
 /*** view what event_time column looks like ***/
-select * from project_1.events  limit 5;
+SELECT 
+  * 
+FROM project_1.events  
+LIMIT 5;
 
 /**remove time and utc from event_time column ***/
-create  temporary table temp1 as
-select left(event_time, position(' ' in event_time)-1) eventdate, 
-		replace(right(event_time, position(' ' in event_time)+1),'UTC','') eventtime, e.* 
-from events e ;
+CREATE  TEMPORARY TABLE temp1 AS
+  SELECT 
+    left(event_time, position(' ' in event_time)-1) eventdate
+	, replace(right(event_time, position(' ' in event_time)+1),'UTC','') eventtime
+	, e.* 
+  FROM events e ;
 
 /**** drop unused column event_time ***/
-Alter table temp1
-drop column event_time;
+ALTER TABLE temp1
+DROP column event_time;
 
 /*** Answer questions about the data ****/
 
 /***** 1. most purchased product ***/
-select product_id, sum(price) Sales 
-from events
-where event_type ='purchase'
-group by product_id 
-order by sales desc limit 1;
+SELECT 
+  product_id
+  , SUM(price) Sales 
+FROM events
+WHERE event_type ='purchase'
+GROUP BY  product_id 
+ORDER BY sales DESC
+LIMIT 1;
 
 /***** 2. Most viewed product ****/
-select product_id, count(event_type) noofviews 
-from events 
-where event_type in ('view')
-group by product_id 
-order by noofviews desc limit 1;
+SELECT 
+  product_id
+  , COUNT(event_type) noofviews 
+FROM events 
+WHERE event_type IN ('view')
+GROUP BY product_id 
+ORDER BY noofviews DESC 
+LIMIT 1;
 
 /*** 3.Most viewed and least viewed product for each brand ****/
-with cte as 
-	(select brand, product_id, count(event_type) noofviews
-	from events
-    where event_type='view' and brand is not null
-	group by brand, product_id),
-cte2 as 
-	(select *, dense_rank() over(partition by brand order by noofviews desc)rnk,
-	first_value(product_id) over(partition by brand order by noofviews desc range between unbounded preceding and unbounded following)mostviewedproductid,
-    last_value(product_id) over(partition by brand order by noofviews desc range between unbounded preceding and unbounded following)leastviewedproductid,
-	last_value(noofviews) over(partition by brand order by noofviews desc range between unbounded preceding and unbounded following)leastviewedcount
-    from cte)
-select brand, product_id, mostviewedproductid,noofviews as mostviewedcount, leastviewedproductid,leastviewedcount,rnk
-from cte2 
-where rnk =1 
-order by noofviews desc;
+WITH cte AS (
+  SELECT 
+	  brand
+	  , product_id
+	  , COUNT(event_type) noofviews
+  FROM events
+  WHERE event_type='view' 
+	AND brand IS NOT NULL
+  GROUP BY brand, product_id
+)
+,cte2 AS (
+  SELECT 
+	  *
+	  ,DENSE_RANK() OVER(
+      PARTITION BY brand 
+      ORDER BY noofviews DESC
+    ) rnk
+
+	  ,FIRST_VALUE(product_id) OVER(
+		  PARTITION BY brand 
+		  ORDER BY noofviews DESC 
+		  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+	  ) mostviewedproductid
+
+    ,LAST_VALUE(product_id) OVER(
+		  PARTITION BY brand 
+		  ORDER BY noofviews DESC 
+		  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+	  )leastviewedproductid
+
+	 ,LAST_VALUE(noofviews) OVER(
+		  PARTITION BY brand 
+		  ORDER BY noofviews DESC 
+		  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+	  )leastviewedcount
+  FROM cte
+)
+SELECT 
+  brand
+  , product_id
+  , mostviewedproductid
+  , noofviews AS mostviewedcount
+  , leastviewedproductid
+  , leastviewedcount
+  , rnk
+FROM cte2 
+WHERE rnk = 1 
+ORDER BY noofviews DESC;
 
 /***** 4. top 5 User with most views   ******/
-select * from temp1 limit 3;
-select user_id, count(event_type) Noofviews
-from temp1 where event_type ='view'
-group by user_id
-order by Noofviews desc
-limit 5;
+SELECT 
+  * 
+FROM temp1 
+LIMIT 5;
+
+SELECT 
+  user_id
+  , COUNT(event_type) Noofviews
+FROM temp1 
+WHERE event_type ='view'
+GROUP BY user_id
+ORDER BY Noofviews DESC
+LIMIT 5;
 
 /*** Top 5 brands with most revenue and product types sold ***/
-select brand, sum(price) revenue, count(distinct product_id) noofproducts
-from temp1
-where event_type ='purchase'
-group by brand
-order by revenue desc
-limit 5;
+SELECT 
+  brand
+  , SUM(price) revenue
+  , COUNT(DISTINCT product_id) noofproducts
+FROM temp1
+WHERE event_type ='purchase'
+GROUP BY brand
+ORDER BY revenue DESC
+LIMIT 5;
