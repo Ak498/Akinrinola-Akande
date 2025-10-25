@@ -1,2 +1,2 @@
 #child file
-Print("child")
+print("child")
